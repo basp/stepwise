@@ -105,6 +105,36 @@ This is the cleanest data-flow style: declare variables, bind activity outputs t
 ### Scoped variables
 
 Variables can be scoped to a `Sequence`/`Flowchart`/branch (any `IVariableContainer`: `Sequence`, `Flowchart`, `Composite`, `Parallel`, …). A variable declared inside a scope is only visible there. To scope a variable, create it with `new Variable<T>()` and add it to that container's `Variables` collection (e.g. `new Sequence { Variables = { myVar }, ... }`); an inline variable that is never added to a `Variables` collection is not visible anywhere. Use scoping to avoid name collisions in parallel branches.
+
+```csharp
+// A variable scoped to a single branch of a Parallel — invisible to the other branch.
+var branchAVar = new Variable<int>("BranchAValue", 0);
+
+builder.Root = new Parallel
+{
+    Branches =
+    {
+        new Sequence
+        {
+            Variables = { branchAVar },
+            Activities =
+            {
+                new SetVariable { Variable = branchAVar, Value = new(context => 42) },
+                new WriteLine { Text = new(context => branchAVar.Get(context).ToString()) }  // 42
+            }
+        },
+        new Sequence
+        {
+            Activities =
+            {
+                // branchAVar is not visible here — different scope
+                new WriteLine { Text = new("other branch") }
+            }
+        }
+    }
+};
+```
+
 ## Workflow input
 
 Data passed in when starting an instance. Declared:
@@ -132,6 +162,41 @@ new DispatchWorkflowDefinitionRequest(definitionVersionId)
 ```
 
 Inside the workflow, read via the variable reference `orderIdInput` or via `context.GetWorkflowInput<T>("OrderId")`.
+
+### `HttpEndpoint` triggers and workflow inputs
+
+An `HttpEndpoint` with `CanStartWorkflow = true` starts an instance from an HTTP request, but it does **not** populate your declared workflow inputs. It captures the request through its own outputs (`QueryStringData`, `RouteData`, `Headers`, `ParsedContent`, …), which you bind to **variables** — see the data-flow example below. Workflow inputs are only supplied by the caller when starting an instance programmatically (via `runtime.RunAsync`/`DispatchWorkflow`).
+
+```csharp
+var routeDataVariable = builder.WithVariable<IDictionary<string, object>>();
+
+builder.Root = new Sequence
+{
+    Activities =
+    {
+        new HttpEndpoint
+        {
+            Path = new("/orders/{orderId}"),
+            CanStartWorkflow = true,
+            RouteData = new(routeDataVariable),   // request data → variable
+        },
+        new WriteLine { Text = new(context => routeDataVariable.Get(context)!["orderId"]?.ToString()) }
+    }
+};
+```
+
+If you do need to start a *different* workflow with workflow inputs derived from an HTTP request, build the dictionary and dispatch it (requires `Elsa.Workflows.Runtime`):
+
+```csharp
+new DispatchWorkflow
+{
+    WorkflowDefinitionId = new("ChildWorkflow"),
+    Input = new(context => new Dictionary<string, object>
+    {
+        ["OrderId"] = routeDataVariable.Get(context)!["orderId"]!
+    })
+};
+```
 
 ## Workflow output
 
