@@ -26,7 +26,7 @@
 - [x] 4.1 Compile every revised C# persistence snippet against Elsa 3.10.2 and verify there are no missing package references, obsolete context names, direct feature-level helper calls, or unsupported helper usage, while recording the MySQL target-framework and restore warnings.
 - [x] 4.2 Run an isolated SQLite restart/resume smoke check with both persistence boundaries configured, and verify a stored definition, suspended instance, and its bookmark survive restart and the workflow resumes to completion.
 - [x] 4.3 Scan the revised guide for stale persistence claims, including singular `ElsaDbContext` guidance, `UseEntityFrameworkPersistence`, the claim that SQL Server has no Elsa-specific package, direct `management.UseSqlite(...)`-style calls, durable inbox/activity-queue claims, and unsupported MySQL .NET 11 parity, and verify no active guidance contains them.
-- [ ] 4.4 Review the final diff against `specs/documentation/persistence-guide/spec.md` and `design.md`, and verify all acceptance scenarios are covered while revisions #2-#5 remain deferred and unimplemented.
+- [x] 4.4 Review the final diff against `specs/documentation/persistence-guide/spec.md` and `design.md`, and verify all acceptance scenarios are covered while revisions #2-#5 remain deferred and unimplemented.
 
 ## Workflow follow-up
 
