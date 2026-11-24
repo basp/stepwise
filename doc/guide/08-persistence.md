@@ -4,32 +4,6 @@ By default, Elsa stores workflow state **in memory**. Code-first definitions reg
 
 This chapter targets **Elsa 3.10.2** and the guide's **.NET 11** host. The companion sample remains on the in-memory defaults; the examples below show how to add durability to your own host.
 
-## Choosing a provider
-
-Elsa 3.10.2 organizes workflow persistence into two boundaries: **workflow management** and **workflow runtime**. The EF Core provider packages configure both when you register persistence under each feature.
-
-| Provider | Elsa package | Helper | Package assets | Operational boundary |
-|----------|-------------|--------|----------------|----------------------|
-| SQLite | `Elsa.Persistence.EFCore.Sqlite` | `UseSqlite` | `net8.0`, `net9.0`, `net10.0` | Good for local durable development and low-concurrency single-node use; limited write concurrency |
-| SQL Server | `Elsa.Persistence.EFCore.SqlServer` | `UseSqlServer` | `net8.0`, `net9.0`, `net10.0` | General-purpose production relational store; supports Elsa's workflow commit transaction |
-| PostgreSQL | `Elsa.Persistence.EFCore.PostgreSql` | `UsePostgreSql` | `net8.0`, `net9.0`, `net10.0` | General-purpose production relational store |
-| MySQL | `Elsa.Persistence.EFCore.MySql` | `UseMySql` | `net8.0`, `net9.0` only | **Not a supported .NET 11 target in Elsa 3.10.2**; see the warning below |
-
-Keep every `Elsa.*` package on the same version. The provider packages bring in the matching vendor EF Core provider, so you do not need a separate SQL Server, Npgsql, SQLite, or Pomelo package merely to call the Elsa helper. The package ID is `PostgreSql`, not `PostgreSQL` or `Npgsql`.
-
-> **MySQL on .NET 11:** `Elsa.Persistence.EFCore.MySql` 3.10.2 only ships `net8.0` and `net9.0` assets. A .NET 11 build selects the `net9.0` asset as an unsupported fallback and restores Pomelo 9.0.0 alongside EF Core 10.0.9, producing an `NU1608` version-constraint warning. The helper compiles, but do not treat this as a supported production configuration. Use a provider with a supported target, or wait for a compatible MySQL package.
-
-### Alternative providers
-
-| Provider | Package | Coverage in 3.10.2 | Boundaries |
-|----------|---------|-------------------|------------|
-| MongoDB | `Elsa.Persistence.MongoDb` | Core management stores (definitions and instances) and runtime stores (triggers, bookmarks, bookmark queue, execution logs, key-values) | No EF migrations; Elsa creates indexes through hosted services. Definition-registry generation coordination remains in-memory/process-local, and the 3.10.2 provider does not include a bookmark dead-letter store |
-| Dapper | `Elsa.Persistence.Dapper` | Core management and runtime stores, including bookmark queue and dead-letter records | Uses FluentMigrator or externally managed SQL schema. Definition-registry generation coordination remains in-memory/process-local. Built-in connection providers cover SQLite, SQL Server, and PostgreSQL; there is no built-in MySQL provider |
-| Elasticsearch | `Elsa.Persistence.Elasticsearch` | **Only** `IWorkflowInstanceStore` and `IWorkflowExecutionLogStore` | Not a full persistence replacement. Definitions, bookmarks, triggers, queues, activity execution records, key-values, and other stores remain separately configured |
-| In-memory | Default | Process-local stores | Suitable for tests and disposable runs; state is lost when the process exits |
-
-Installing an alternative package is not enough: select it for the management and/or runtime features you intend to replace. A mixed-provider deployment is valid, but document which provider owns each store.
-
 ## The two persistence boundaries
 
 ```text
@@ -122,25 +96,11 @@ var app = builder.Build();
 app.Run();
 ```
 
-The provider helper belongs **inside** `UseEntityFrameworkCore(...)`. It configures the migrations assembly, history table, schema, and SQLite-specific model behavior. Calling a provider helper directly on the management or runtime feature is not the supported API shape.
+The provider helper belongs **inside** `UseEntityFrameworkCore(...)`. Provider-specific package choices and behavior are covered in the [persistence provider appendix](appendix-persistence-providers.md).
 
 The two features can use the same connection string and therefore the same physical database. They still use separate EF Core contexts and separate migration streams. Use different connection strings if you want management and runtime data in separate databases.
 
 For local development only, you can set `ef.RunMigrations = true` on both features. Do not use that setting as the production migration strategy.
-
-## Swapping the EF Core provider
-
-Keep the same two-boundary structure. Replace the package and both helper calls:
-
-| Provider | Package reference | Management call | Runtime call |
-|----------|-------------------|-----------------|--------------|
-| SQL Server | `Elsa.Persistence.EFCore.SqlServer` | `ef.UseSqlServer(connectionString)` | `ef.UseSqlServer(connectionString)` |
-| PostgreSQL | `Elsa.Persistence.EFCore.PostgreSql` | `ef.UsePostgreSql(connectionString)` | `ef.UsePostgreSql(connectionString)` |
-| MySQL | `Elsa.Persistence.EFCore.MySql` | `ef.UseMySql(connectionString)` | `ef.UseMySql(connectionString)` |
-
-All four helpers are in `Elsa.Persistence.EFCore.Extensions`. SQL Server, PostgreSQL, and SQLite have `net10.0` assets suitable for the guide's .NET 11 target. MySQL does not; retain the explicit unsupported-target warning if you document that swap.
-
-The configuration shape is shared, but the operational characteristics are not. SQLite is convenient for local durability but has limited write concurrency. Choose SQL Server or PostgreSQL for clustered or higher-throughput production deployments, and validate the selected provider under your expected load.
 
 ## Migrations
 
@@ -152,7 +112,7 @@ Elsa ships EF Core migrations in each provider package. The helpers point each c
 
 ### Production
 
-Install `dotnet-ef` with a version compatible with the EF Core packages resolved by your host (10.0.x for the validated Elsa 3.10.2 restore). The startup project must also reference `Microsoft.EntityFrameworkCore.Design` 10.0.9 with `PrivateAssets="all"`, as shown in the package example above. Then apply both contexts in a controlled deployment step:
+Install `dotnet-ef` with a version compatible with the EF Core packages resolved by your host. The startup project must also reference `Microsoft.EntityFrameworkCore.Design` with `PrivateAssets="all"`, as shown in the package example above. Then apply both contexts in a controlled deployment step:
 
 ```bash
 dotnet ef database update --project <startup-project> --startup-project <startup-project> --context ManagementElsaDbContext
@@ -161,11 +121,9 @@ dotnet ef database update --project <startup-project> --startup-project <startup
 
 Use a deployment identity with permission to apply schema changes, review generated SQL, test migrations in staging, and keep backups. Do not rely on application startup to race migrations across multiple production nodes.
 
-### Separate streams, shared history table
+### Separate migration streams
 
-`ManagementElsaDbContext` and `RuntimeElsaDbContext` have separate context-specific migration sets. When both target the same physical database, they share the default `__EFMigrationsHistory` table; schema-capable providers place it in the `Elsa` schema, while SQLite uses the unqualified table name. Running both commands is still required because each context tracks a different migration stream.
-
-If you need separate physical history tables, configure different `ElsaDbContextOptions.MigrationsHistoryTableName` values for management and runtime. Separate connection strings also give each database its own history table.
+`ManagementElsaDbContext` and `RuntimeElsaDbContext` have separate context-specific migration sets. Run both migration commands, even when the contexts share a database. Provider-specific history-table behavior and configuration are described in the [persistence provider appendix](appendix-persistence-providers.md#migration-history).
 
 ## Restart semantics
 
@@ -186,9 +144,8 @@ A **code-first definition** is materialized from the workflow class registered w
 |----------|-------------------------|
 | Unit tests and disposable scripts | In-memory |
 | Local prototyping where restart loss is acceptable | In-memory |
-| Local development that must survive restart | SQLite with both boundaries |
-| Single-node production that must resume work | SQLite for low concurrency, or SQL Server/PostgreSQL |
-| Multi-node, long-running, or higher-throughput production | SQL Server/PostgreSQL with both boundaries, distributed locks, shared cache, and a durable scheduler |
+| Local development that must survive restart | Durable management and runtime stores |
+| Production that must resume work | Durable management and runtime stores, plus production operations appropriate to the deployment |
 
 Durable persistence is necessary for restart survival, but it is not sufficient for a clustered deployment. Configure distributed locking to prevent duplicate resumes, a shared cache where needed, and a durable scheduler such as Quartz or Hangfire for timers.
 
@@ -202,11 +159,11 @@ Keep Elsa's contexts separate from your domain `DbContext`:
 
 Do **not** reuse the domain context for Elsa stores. Elsa's model evolves with the engine, and mixing it into the application's migration history makes upgrades harder to reason about.
 
-A shared physical database is fine. The contexts keep separate models and migration streams, even though they share the default EF Core history table when co-located. Use separate databases if your backup, security, or operational requirements call for independent storage.
+A shared physical database is fine. The contexts keep separate models and migration streams. Use separate databases if your backup, security, or operational requirements call for independent storage.
 
 Optional Elsa features keep their own persistence ownership. Enable their feature-specific persistence only when you use them; do not assume the two workflow contexts cover identity, labels, alterations, or tenants.
 
-## Backups and provider operations
+## Backups
 
 Treat both Elsa contexts as critical application data:
 
@@ -216,15 +173,13 @@ Treat both Elsa contexts as critical application data:
 - Test restores regularly, including resuming a suspended workflow after restore.
 - Keep the deployed Elsa package version aligned with the schema version you tested.
 
-For SQLite, use the SQLite backup API or stop the host before copying the database file. For SQL Server and PostgreSQL, use their native backup and point-in-time recovery tools. For MongoDB or Elasticsearch, use the provider's snapshot and restore facilities and verify index mappings and refresh behavior.
-
-Provider boundaries matter operationally: SQLite is not a clustered database, MySQL 3.10.2 is not supported on .NET 11, and Elasticsearch only covers the instance and workflow-execution-log stores. A shared connection string does not make providers operationally interchangeable.
+For provider-specific backup and restore advice, see the [persistence provider appendix](appendix-persistence-providers.md#backup-and-indexing).
 
 ## Retention and indexing
 
 Completed instances, execution logs, and queue records accumulate. Configure the separate `Elsa.Retention` extension for the cleanup policies your product needs, and include related runtime records in the cleanup design. Retention does not replace backups or an archive strategy.
 
-Review the official [Indexing Notes](https://docs.elsaworkflows.io/guides/persistence/indexing-notes.md) for provider-specific indexes. Elsa's built-in migrations include core indexes, but production workloads may need additional indexes based on their query patterns.
+Elsa's built-in migrations include core indexes, but production workloads may need additional indexes based on their query patterns. See the [provider appendix](appendix-persistence-providers.md#backup-and-indexing) and the official [Indexing Notes](https://docs.elsaworkflows.io/guides/persistence/indexing-notes.md).
 
 ## Storage boundaries and tenants
 

@@ -1,5 +1,7 @@
 # Appendix — Cheat sheet
 
+For provider compatibility and operational details, see the [persistence provider reference](appendix-persistence-providers.md).
+
 ## Packages (3.10.2)
 
 ```
@@ -12,7 +14,7 @@ Elsa.Expressions.JavaScript / .CSharp / .Liquid
 Elsa.OpenTelemetry
 ```
 
-Keep all `Elsa.*` packages on the same version. Elsa 3.10.2 MySQL is not supported on .NET 11; see chapter 08.
+Keep all `Elsa.*` packages on the same version. Elsa 3.10.2 MySQL is not supported on .NET 11; see the [persistence provider reference](appendix-persistence-providers.md#ef-core-providers).
 
 ## Host wiring
 

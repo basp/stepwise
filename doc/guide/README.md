@@ -27,6 +27,7 @@ Read the chapters in order the first time. Each chapter builds on the previous o
 | 11 | [Testing & debugging](11-testing-debugging.md) | Unit testing activities/workflows, journal, incidents |
 | 12 | [Operating in production](12-production.md) | Clustering, health checks, observability, tuning |
 | A | [Cheat sheet](appendix-cheat-sheet.md) | Quick reference of types, APIs, common patterns |
+| B | [Persistence provider reference](appendix-persistence-providers.md) | Provider packages, compatibility, and operational differences |
 
 ## Conventions used in this guide
 
