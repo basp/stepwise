@@ -81,7 +81,9 @@ You can also register by type at runtime or load from JSON/ElsaScript. For now, 
 
 ## HTTP options
 
-`BaseUrl` + `BasePath` determine where HTTP triggers are exposed. With the sample config, the `EchoWorkflow`'s `/echo` endpoint is reachable at `http://localhost:5268/workflows/echo`. Always set `BaseUrl` to the externally reachable URL in production (behind proxies/load balancers).
+`BasePath` sets the route prefix under which HTTP triggers are exposed. With the sample config, the `EchoWorkflow`'s `/echo` endpoint is reachable at `http://localhost:5268/workflows/echo` — but note the host/port come from ASP.NET Core's server binding (`launchSettings.json` / `applicationUrl`), not from Elsa.
+
+`BaseUrl` is **not** used for routing. It is used to *publish/generate* absolute URLs (bookmark and signal trigger URLs produced outside an HTTP request, and the endpoint path shown in Elsa Studio). Set it to the externally reachable URL in production (behind proxies/load balancers); if it is wrong, generated links/emails point at the wrong host, but the endpoint itself still responds at the ASP.NET Core-bound address.
 
 ## Middleware ordering
 
