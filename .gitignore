@@ -5,6 +5,11 @@ obj/
 .vs/
 .vscode/
 
+.agents/
+.github/
+.junie/
+.opencode/
+
 App_Data/
 
 appsettings.Development.json
