@@ -20,10 +20,20 @@ internal class Test : WorkflowBase
                     Path = new Input<string>("/test"),
                     CanStartWorkflow = true,
                 },
+                // Use the correlation ID supplied by the caller (via ?correlationId=... or the
+                // X-Correlation-ID header), or generate one so this instance can still be targeted.
+                new Correlate(context =>
+                {
+                    var workflowContext = context.GetWorkflowExecutionContext();
+                    return string.IsNullOrWhiteSpace(workflowContext.CorrelationId)
+                        ? Guid.NewGuid().ToString("N")
+                        : workflowContext.CorrelationId;
+                }),
                 new WriteHttpResponse
                 {
                     Content = new Input<object?>(context => new
                     {
+                        correlationId = context.GetWorkflowExecutionContext().CorrelationId,
                     }),
                 },
                 new Fork
@@ -38,6 +48,9 @@ internal class Test : WorkflowBase
                                 new HttpEndpoint
                                 {
                                     Path = new Input<string>("/finish"),
+                                    // Call with ?correlationId=... (or X-Correlation-ID) to resume
+                                    // only the instance that was started with that correlation ID.
+                                    CanStartWorkflow = false,
                                 },                                
                                 new WriteLine("OK."),
                             },

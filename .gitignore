@@ -5,4 +5,6 @@ obj/
 .vs/
 .vscode/
 
+App_Data/
+
 appsettings.Development.json
