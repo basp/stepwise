@@ -11,7 +11,7 @@ The meta-package `Elsa` pulls in the core engine. Add feature packages for what 
   <PackageReference Include="Elsa" Version="3.10.2" />
   <PackageReference Include="Elsa.Http" Version="3.10.2" />        <!-- HTTP activities/triggers -->
   <PackageReference Include="Elsa.Scheduling" Version="3.10.2" />  <!-- Delay, timers -->
-  <!-- Elsa.Persistence.EFCore + a DB provider when you need durable state -->
+  <!-- Add one Elsa.Persistence.EFCore.<Provider> package for durable state (chapter 08) -->
 </ItemGroup>
 ```
 
@@ -67,7 +67,9 @@ Conceptually:
 - Your `AddWorkflow<T>` calls register a **workflow provider** that yields that definition.
 - `UseX` calls register feature-specific services and activities.
 
-By default, persistence is **in-memory**. That's fine for development and tests. For production, add EF Core (chapter 08).
+By default, persistence is **in-memory**. Code-first definitions registered with `AddWorkflow<T>()` are recreated from source after a restart, but stored definitions, instances, bookmarks, and runtime records are lost. For durable state, configure both workflow management and workflow runtime persistence as shown in [chapter 08](08-persistence.md).
+
+EF Core persistence uses two separate contexts: `ManagementElsaDbContext` for definitions and instances, and `RuntimeElsaDbContext` for bookmarks, triggers, queues, logs, and key-value coordination records. They have separate migration streams; when they share a database, they share the default `__EFMigrationsHistory` table unless you configure separate history table names. Keep both contexts separate from your domain `DbContext`.
 
 ## Registering workflows
 
@@ -109,8 +111,8 @@ await runner.RunAsync(new Sequence { Activities = { new WriteLine("hi") } });
 
 If you're adding Elsa to an app that already has its own DI, DbContext, auth, etc., the pitfalls are: duplicate DbContext registration, tenant resolution, and middleware ordering. The official [Hosting Elsa in an Existing App](https://docs.elsaworkflows.io/guides/onboarding/hosting-elsa-in-existing-app.md) guide covers these. Key points:
 
-- Elsa needs its own `ElsaDbContext` (or you configure it to use yours via `UseEntityFrameworkCore`).
-- Keep Elsa's persistence separate from your domain DbContext to avoid migration conflicts.
+- Elsa needs its own `ManagementElsaDbContext` and `RuntimeElsaDbContext` when you enable EF Core persistence; do not reuse your domain `DbContext` for Elsa stores.
+- The two Elsa contexts may share a physical database while retaining separate models and migration streams. Their default EF Core history table is shared when co-located; configure distinct history table names if you need physical separation.
 - Register Elsa *after* your core services so it can resolve them if custom activities need them.
 
 ## Configuration via appsettings

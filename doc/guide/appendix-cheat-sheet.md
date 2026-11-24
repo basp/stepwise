@@ -6,22 +6,48 @@
 Elsa
 Elsa.Http
 Elsa.Scheduling
-Elsa.Persistence.EFCore + (SqlServer|Npgsql|Sqlite|MySql)
+Elsa.Persistence.EFCore.Sqlite    // or SqlServer, PostgreSql, MySql (choose one)
 Elsa.Expressions.JavaScript / .CSharp / .Liquid
 Elsa.OpenTelemetry
 ```
 
+Keep all `Elsa.*` packages on the same version. Elsa 3.10.2 MySQL is not supported on .NET 11; see chapter 08.
+
 ## Host wiring
 
 ```csharp
+using Elsa.Extensions;
+using Elsa.Persistence.EFCore.Extensions;
+using Elsa.Persistence.EFCore.Modules.Management;
+using Elsa.Persistence.EFCore.Modules.Runtime;
+
+var builder = WebApplication.CreateBuilder(args);
+var connectionString = builder.Configuration.GetConnectionString("Elsa")!;
+
 builder.Services.AddElsa(elsa =>
 {
-    elsa.AddWorkflow<T>();
-    elsa.UseScheduling();
-    elsa.UseHttp(http => http.ConfigureHttpOptions = o => { o.BaseUrl = ...; o.BasePath = "/workflows"; });
-    // elsa.UseEntityFrameworkPersistence(...);
+    // elsa.AddWorkflow<MyWorkflow>();
+    // elsa.UseScheduling();
+    // elsa.UseHttp(...);
+
+    elsa.UseWorkflowManagement(management =>
+        management.UseEntityFrameworkCore(ef =>
+        {
+            ef.UseSqlite(connectionString);
+            ef.RunMigrations = false; // Apply migrations in the deployment pipeline.
+        }));
+
+    elsa.UseWorkflowRuntime(runtime =>
+        runtime.UseEntityFrameworkCore(ef =>
+        {
+            ef.UseSqlite(connectionString);
+            ef.RunMigrations = false; // Apply migrations in the deployment pipeline.
+        }));
 });
-app.UseWorkflows();
+
+var app = builder.Build();
+// app.UseWorkflows(); // when Elsa's HTTP/API features are enabled
+app.Run();
 ```
 
 ## Workflow skeleton
