@@ -64,11 +64,11 @@ The guide SHALL keep Elsa contexts separate from the application's domain `DbCon
 - **THEN** the guide preserves independent model and migration-stream ownership and does not direct the reader to reuse the domain context for Elsa stores
 
 ### Requirement: Accurate alternative-provider boundaries
-The guide SHALL present MongoDB, Dapper, and Elasticsearch as alternatives with accurate store coverage and SHALL state that Elasticsearch only replaces workflow-instance and workflow-execution-log stores, not every Elsa persistence store.
+The guide SHALL present MongoDB, Dapper, and Elasticsearch as alternatives with accurate store coverage, identify process-local companion stores, and SHALL state that Elasticsearch only replaces workflow-instance and workflow-execution-log stores, not every Elsa persistence store.
 
 #### Scenario: Reader considers Elasticsearch
 - **WHEN** a reader evaluates Elasticsearch as an Elsa persistence provider
-- **THEN** the guide identifies the two stores it covers and requires separate configuration for definitions, bookmarks, queues, activity execution records, key-values, and other uncovered stores
+- **THEN** the guide identifies the two stores it covers, requires separate configuration for definitions, bookmarks, queues, activity execution records, key-values, and other uncovered stores, and states that definition-registry generation coordination remains in-memory for MongoDB and Dapper
 
 ### Requirement: Version-pinned example validation
 The revised persistence examples SHALL be validated against Elsa 3.10.2, including compilation of each documented provider configuration and a restart/resume check for a workflow suspended on a bookmark; unsupported provider target combinations SHALL be reported rather than presented as supported.

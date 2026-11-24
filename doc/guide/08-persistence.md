@@ -23,8 +23,8 @@ Keep every `Elsa.*` package on the same version. The provider packages bring in 
 
 | Provider | Package | Coverage in 3.10.2 | Boundaries |
 |----------|---------|-------------------|------------|
-| MongoDB | `Elsa.Persistence.MongoDb` | Core management stores (definitions and instances) and runtime stores (triggers, bookmarks, bookmark queue, execution logs, key-values) | No EF migrations; Elsa creates indexes through hosted services. The 3.10.2 provider does not include a bookmark dead-letter store |
-| Dapper | `Elsa.Persistence.Dapper` | Core management and runtime stores, including bookmark queue and dead-letter records | Uses FluentMigrator or externally managed SQL schema. Built-in connection providers cover SQLite, SQL Server, and PostgreSQL; there is no built-in MySQL provider |
+| MongoDB | `Elsa.Persistence.MongoDb` | Core management stores (definitions and instances) and runtime stores (triggers, bookmarks, bookmark queue, execution logs, key-values) | No EF migrations; Elsa creates indexes through hosted services. Definition-registry generation coordination remains in-memory/process-local, and the 3.10.2 provider does not include a bookmark dead-letter store |
+| Dapper | `Elsa.Persistence.Dapper` | Core management and runtime stores, including bookmark queue and dead-letter records | Uses FluentMigrator or externally managed SQL schema. Definition-registry generation coordination remains in-memory/process-local. Built-in connection providers cover SQLite, SQL Server, and PostgreSQL; there is no built-in MySQL provider |
 | Elasticsearch | `Elsa.Persistence.Elasticsearch` | **Only** `IWorkflowInstanceStore` and `IWorkflowExecutionLogStore` | Not a full persistence replacement. Definitions, bookmarks, triggers, queues, activity execution records, key-values, and other stores remain separately configured |
 | In-memory | Default | Process-local stores | Suitable for tests and disposable runs; state is lost when the process exits |
 
@@ -73,6 +73,7 @@ Identity, labels, alterations, and tenants have their own feature-specific persi
 <ItemGroup>
   <PackageReference Include="Elsa" Version="3.10.2" />
   <PackageReference Include="Elsa.Persistence.EFCore.Sqlite" Version="3.10.2" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" PrivateAssets="all" />
 </ItemGroup>
 ```
 
@@ -151,7 +152,7 @@ Elsa ships EF Core migrations in each provider package. The helpers point each c
 
 ### Production
 
-Install `dotnet-ef` with a version compatible with the EF Core packages resolved by your host (10.0.x for the validated Elsa 3.10.2 restore), then apply both contexts in a controlled deployment step:
+Install `dotnet-ef` with a version compatible with the EF Core packages resolved by your host (10.0.x for the validated Elsa 3.10.2 restore). The startup project must also reference `Microsoft.EntityFrameworkCore.Design` 10.0.9 with `PrivateAssets="all"`, as shown in the package example above. Then apply both contexts in a controlled deployment step:
 
 ```bash
 dotnet ef database update --project <startup-project> --startup-project <startup-project> --context ManagementElsaDbContext
@@ -162,7 +163,7 @@ Use a deployment identity with permission to apply schema changes, review genera
 
 ### Separate streams, shared history table
 
-`ManagementElsaDbContext` and `RuntimeElsaDbContext` have separate context-specific migration sets. When both target the same physical database, they share the default `Elsa.__EFMigrationsHistory` table. Running both commands is still required because each context tracks a different migration stream.
+`ManagementElsaDbContext` and `RuntimeElsaDbContext` have separate context-specific migration sets. When both target the same physical database, they share the default `__EFMigrationsHistory` table; schema-capable providers place it in the `Elsa` schema, while SQLite uses the unqualified table name. Running both commands is still required because each context tracks a different migration stream.
 
 If you need separate physical history tables, configure different `ElsaDbContextOptions.MigrationsHistoryTableName` values for management and runtime. Separate connection strings also give each database its own history table.
 

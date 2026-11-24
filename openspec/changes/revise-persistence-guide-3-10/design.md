@@ -10,7 +10,7 @@ The repository targets Elsa 3.10.2. Commit-pinned source and the installed assem
 
 - Provider helpers extend the EF Core persistence feature inside `UseEntityFrameworkCore(...)`, not the management or runtime feature directly.
 - `RunMigrations` defaults to `true`; production examples must explicitly disable it.
-- The two contexts have separate migration streams but share `Elsa.__EFMigrationsHistory` by default when they target the same database.
+- The two contexts have separate migration streams but share `__EFMigrationsHistory` by default when they target the same database; schema-capable providers place it in the `Elsa` schema.
 - Elsa 3.10.2 MySQL only supports .NET 8 and .NET 9 assets. A .NET 11 build selects an unsupported fallback.
 
 ## Goals / Non-Goals
@@ -85,9 +85,9 @@ The guide will call out SQLite's concurrency and operational limitations and dir
 
 ### 4. Separate development and production migration guidance
 
-The provider helpers select each context's migration stream. `RunMigrations` defaults to `true`, so the development example may show it explicitly and label it development-only. The production example will set `ef.RunMigrations = false` on both features and apply reviewed migrations through the deployment pipeline.
+The provider helpers select each context's migration stream. `RunMigrations` defaults to `true`, so the development example may show it explicitly and label it development-only. The production example will set `ef.RunMigrations = false` on both features and apply reviewed migrations through the deployment pipeline. The startup project must reference `Microsoft.EntityFrameworkCore.Design` 10.0.9 with `PrivateAssets="all"` so `dotnet ef` can discover both contexts.
 
-Both contexts may target the same physical database. They have context-specific migration sets filtered by `[DbContext(...)]`, but by default share the `Elsa.__EFMigrationsHistory` table. Literal table separation requires different `ElsaDbContextOptions.MigrationsHistoryTableName` values.
+Both contexts may target the same physical database. They have context-specific migration sets filtered by `[DbContext(...)]`, but by default share the `__EFMigrationsHistory` table, located in the `Elsa` schema on schema-capable providers. Literal table separation requires different `ElsaDbContextOptions.MigrationsHistoryTableName` values.
 
 Production guidance will show explicit commands for both contexts:
 
@@ -110,13 +110,13 @@ Chapter 02 and the cheat sheet will be updated only where they describe persiste
 
 ### 7. Preserve alternative providers with accurate coverage
 
-MongoDB and Dapper will be presented as alternatives for the core management/runtime store set, with their own migration or index responsibilities. Elasticsearch will be presented only as a replacement for `IWorkflowInstanceStore` and `IWorkflowExecutionLogStore`; definitions, bookmarks, queues, activity execution records, key-values, and other stores require separate configuration.
+MongoDB and Dapper will be presented as alternatives for the core management/runtime store set, with their own migration or index responsibilities. Both leave definition-registry generation coordination on the process-local in-memory store in 3.10.2, which the guide must disclose for multi-node readers. Elasticsearch will be presented only as a replacement for `IWorkflowInstanceStore` and `IWorkflowExecutionLogStore`; definitions, bookmarks, queues, activity execution records, key-values, and other stores require separate configuration.
 
 ## Risks / Trade-offs
 
 - **Official documentation may describe an earlier Elsa release** -> Pin examples to the installed 3.10.2 assemblies and commit-pinned source, and record the validated package/helper matrix in the chapter.
 - **Readers may copy automatic migrations into production** -> State that `RunMigrations` defaults to `true`, show `false` explicitly in production guidance, and repeat the controlled migration path in the checklist.
-- **A shared history table can hide the two-context model** -> Explain separate migration streams and the shared default `__EFMigrationsHistory` table; require both context commands even when connection strings match.
+- **A shared history table can hide the two-context model** -> Explain separate migration streams and the shared default `__EFMigrationsHistory` table, including its provider-dependent schema qualification; require both context commands even when connection strings match.
 - **MySQL appears API-compatible but lacks a supported .NET 11 target** -> Document the unsupported fallback and restore warning; do not recommend it as a supported .NET 11 production swap.
 - **Runtime terminology can imply durability that does not exist** -> Map bookmark queues, dead letters, and key-value outbox records explicitly; exclude the in-process activity queue and deprecated inbox from durable-store claims.
 - **Provider packages have different operational characteristics** -> Keep the common configuration shape, but avoid claiming SQLite, SQL Server, PostgreSQL, and MySQL are operationally interchangeable.

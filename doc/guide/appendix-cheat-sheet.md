@@ -7,6 +7,7 @@ Elsa
 Elsa.Http
 Elsa.Scheduling
 Elsa.Persistence.EFCore.Sqlite    // or SqlServer, PostgreSql, MySql (choose one)
+Microsoft.EntityFrameworkCore.Design 10.0.9  // PrivateAssets="all"; required by dotnet ef
 Elsa.Expressions.JavaScript / .CSharp / .Liquid
 Elsa.OpenTelemetry
 ```

@@ -11,7 +11,7 @@ The persistence chapter teaches obsolete Elsa 3.x persistence APIs and an incomp
 - Show durable configuration for both `UseWorkflowManagement` and `UseWorkflowRuntime`.
 - Replace the singular `ElsaDbContext` migration story with `ManagementElsaDbContext` and `RuntimeElsaDbContext`, including separate context-specific migration streams, their shared default history table when co-located, and controlled production migration commands.
 - Correct the in-memory/durable decision matrix and clarify which records survive a restart.
-- Preserve alternative providers while stating their real coverage boundaries, especially Elasticsearch.
+- Preserve alternative providers while stating their real coverage boundaries, especially Elasticsearch and process-local definition-registry coordination in MongoDB and Dapper.
 - Document verified provider limitations that affect copy-paste guidance: MySQL 3.10.2 has no supported .NET 11 target, the active durable runtime queue is the bookmark queue plus dead-letter store, and the legacy inbox table is not an active EF Core inbox store.
 - Update persistence references in `doc/guide/02-hosting-in-aspnetcore.md` and `doc/guide/appendix-cheat-sheet.md` for consistency.
 - Validate revised snippets against Elsa 3.10.2, including a restart/resume check for a bookmarked workflow.

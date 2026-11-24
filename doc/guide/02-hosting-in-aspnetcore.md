@@ -69,7 +69,7 @@ Conceptually:
 
 By default, persistence is **in-memory**. Code-first definitions registered with `AddWorkflow<T>()` are recreated from source after a restart, but stored definitions, instances, bookmarks, and runtime records are lost. For durable state, configure both workflow management and workflow runtime persistence as shown in [chapter 08](08-persistence.md).
 
-EF Core persistence uses two separate contexts: `ManagementElsaDbContext` for definitions and instances, and `RuntimeElsaDbContext` for bookmarks, triggers, queues, logs, and key-value coordination records. They have separate migration streams; when they share a database, they share the default `__EFMigrationsHistory` table unless you configure separate history table names. Keep both contexts separate from your domain `DbContext`.
+EF Core persistence uses two separate contexts: `ManagementElsaDbContext` for definitions and instances, and `RuntimeElsaDbContext` for bookmarks, triggers, queues, logs, and key-value coordination records. They have separate migration streams; when they share a database, they share the default `__EFMigrationsHistory` table, located in the `Elsa` schema on schema-capable providers and unqualified on SQLite. Configure separate history table names if you need physical separation. Keep both contexts separate from your domain `DbContext`.
 
 ## Registering workflows
 
