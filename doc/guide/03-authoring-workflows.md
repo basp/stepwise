@@ -202,6 +202,15 @@ Built-in variables available in expressions: `WorkflowInstanceId`, `CorrelationI
 
 Activities can have an `Id`. If omitted, Elsa generates one. Stable IDs matter for: resuming bookmarks, alterations, and reading execution logs. For code-first, IDs are derived from position in many cases, but set them explicitly when you need to target an activity.
 
+```csharp
+new HttpEndpoint
+{
+    Id = "WaitForApproval",   // stable, targetable ID
+    Path = new Input<string>("/approve"),
+    CanStartWorkflow = false,
+}
+```
+
 ## Source control & versioning
 
 Code-first definitions are versioned by your git history. Runtime versioning (definition versions in the store) applies mainly to stored/published definitions. For code-first, the definition is recreated per app version; instances created under older code versions may not resume cleanly if the tree changed. Plan migrations (alterations) for long-lived instances.

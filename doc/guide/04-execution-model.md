@@ -86,7 +86,27 @@ Internally, the engine maintains an **activity execution queue**. A burst:
 7. If a bookmark was created during the burst → commit state, suspend.
 8. Else → commit state, complete.
 
-Side effects inside an activity happen during the burst. If the process crashes mid-burst, the burst is not checkpointed mid-way (only at burst boundaries). Design activities to be idempotent where possible, or use the outbox for downstream dispatches.
+Side effects inside an activity happen during the burst. If the process crashes mid-burst, the burst is not checkpointed mid-way (only at burst boundaries). Design activities to be idempotent where possible; for downstream work, dispatch a child workflow instead of doing it inline — with the transactional outbox enabled (`WorkflowDispatcherOptions.UseTransactionalOutbox`), dispatches made during a burst are written to the outbox and only processed after state commit, so they survive a crash and never run ahead of the persisted state:
+
+```csharp
+protected override async ValueTask ExecuteAsync(ActivityExecutionContext context)
+{
+    var dispatcher = context.GetRequiredService<IWorkflowDispatcher>();
+    var orderId = context.Get(OrderId);
+
+    // Captured by the outbox when enabled: persisted with the burst,
+    // dispatched only after commit.
+    await dispatcher.DispatchAsync(new DispatchWorkflowDefinitionRequest(downstreamDefinitionVersionId)
+    {
+        CorrelationId = orderId,
+        Input = new Dictionary<string, object> { ["OrderId"] = orderId },
+    });
+
+    await context.CompleteActivityAsync();
+}
+```
+
+If you must perform a non-dispatch side effect directly, make it idempotent or guard it with persisted state.
 
 ## Triggers, bookmarks, stimuli (the event model)
 

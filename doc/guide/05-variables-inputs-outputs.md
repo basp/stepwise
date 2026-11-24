@@ -49,11 +49,33 @@ var messageVariable = builder.WithVariable<string>();
 var queryStringsVariable = builder.WithVariable<IDictionary<string, object>>();
 ```
 
-Or inline via `Variable<T>`:
+Or inline via `Variable<T>` — useful for scoping or for variables you want to construct explicitly:
 
 ```csharp
 var counter = new Variable<int>("Counter", 0);
 ```
+
+An inline variable is **not** registered anywhere by itself. It only becomes part of the workflow/activity once you add it to a variable container's `Variables` collection. Register it at workflow level:
+
+```csharp
+var counter = new Variable<int>("Counter", 0);
+builder.WithVariable(counter);   // equivalent: builder.Variables.Add(counter);
+```
+
+Or scope it to a container (`Sequence`, `Flowchart`, `Composite`, `Parallel`, …), where it is visible to that container's activities and its descendants:
+
+```csharp
+builder.Root = new Sequence
+{
+    Variables = { counter },
+    Activities =
+    {
+        new WriteLine { Text = new(context => counter.Get(context).ToString()) }
+    }
+};
+```
+
+`builder.WithVariable<T>(...)` (the first form above) does both steps for you — it creates the variable **and** registers it on the builder. Use `new Variable<T>()` when you need an explicit instance, e.g. to scope it to a branch, but remember to register it.
 
 Read/write:
 
@@ -82,8 +104,7 @@ This is the cleanest data-flow style: declare variables, bind activity outputs t
 
 ### Scoped variables
 
-Variables can be scoped to a `Sequence`/`Flowchart`/branch. A variable declared inside a scope is only visible there. Use scoping to avoid name collisions in parallel branches.
-
+Variables can be scoped to a `Sequence`/`Flowchart`/branch (any `IVariableContainer`: `Sequence`, `Flowchart`, `Composite`, `Parallel`, …). A variable declared inside a scope is only visible there. To scope a variable, create it with `new Variable<T>()` and add it to that container's `Variables` collection (e.g. `new Sequence { Variables = { myVar }, ... }`); an inline variable that is never added to a `Variables` collection is not visible anywhere. Use scoping to avoid name collisions in parallel branches.
 ## Workflow input
 
 Data passed in when starting an instance. Declared:
@@ -181,7 +202,7 @@ Pattern: **capture → transform → emit**, all via variables. This is the idio
 ## Tips
 
 - Declare variables at the top of `Build` so they're visible everywhere.
-- Use `WithVariable<T>()` for discoverability; use `new Variable<T>()` for scoping/local use.
+- Use `WithVariable<T>()` for discoverability and automatic registration; use `new Variable<T>()` for scoping/local use, but always add it to a container's `Variables` collection (workflow builder or a scoped container) — an unregistered variable is invisible to the engine.
 - Don't put heavy logic in delegates that run on every evaluation — inputs are evaluated when the activity executes, but some may be evaluated multiple times. Keep delegates pure and cheap.
 - For complex transformations, write a custom activity (chapter 09) instead of a giant delegate.
 
